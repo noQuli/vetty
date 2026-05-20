@@ -154,8 +154,8 @@ else
   VETTY_DAEMON_PORT="$DAEMON_PORT" cargo run -p vetty-daemon --manifest-path "$REPO_ROOT/Cargo.toml" &
   DAEMON_PID=$!
 
-  # Wait for daemon to be ready
-  for i in $(seq 1 30); do
+  # Wait for daemon to be ready (up to 300 seconds array to allow time for compilation)
+  for i in $(seq 1 600); do
     if curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
       break
     fi
@@ -163,7 +163,7 @@ else
   done
 
   if ! curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
-    echo -e "${RED}✗ Daemon failed to start within 15 seconds${RESET}"
+    echo -e "${RED}✗ Daemon failed to start within 300 seconds${RESET}"
     exit 1
   fi
 
