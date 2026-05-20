@@ -1,0 +1,22 @@
+[package]
+name = "vetty-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vetty"
+path = "src/main.rs"
+
+[dependencies]
+vetty-common = { path = "../vetty-common" }
+vetty-disk = { path = "../vetty-disk" }
+vetty-vm = { path = "../vetty-vm" }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+ctrlc = { workspace = true }
+uuid = { workspace = true }
