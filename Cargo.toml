@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vetty-common",
+    "crates/vetty-disk",
+    "crates/vetty-agent",
+    "crates/vetty-vm",
+    "crates/vetty-daemon",
+    "crates/vetty-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Firecracker-based sandbox for running untrusted code with real-time syscall monitoring"
+repository = "https://github.com/noQuli/vetty"
+homepage = "https://github.com/noQuli/vetty"
+readme = "README.md"
+
+[workspace.dependencies]
+anyhow = "1"
+axum = { version = "0.8", features = ["ws"] }
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
+dashmap = "6"
+hostname = "0.4"
+nix = { version = "0.29", features = ["term"] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+socket2 = { version = "0.5", features = ["all"] }
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+walkdir = "2"
