@@ -135,15 +135,15 @@ fn run_cmd(program: &str, args: &[&str], context: &str) -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     bail!(
-    // ZMIANA: Dodano `{}` po programie, teraz jest `{} {}`
-    "command `{} {}` failed while trying to {} (status: {})\nstdout: {}\nstderr: {}",
-    program,
-    args.join(" "), // warto dodać spację " ", żeby argumenty się nie zlepiły
-    context,
-    output.status,
-    stdout,
-    stderr
-);
+        // ZMIANA: Dodano `{}` po programie, teraz jest `{} {}`
+        "command `{} {}` failed while trying to {} (status: {})\nstdout: {}\nstderr: {}",
+        program,
+        args.join(" "), // warto dodać spację " ", żeby argumenty się nie zlepiły
+        context,
+        output.status,
+        stdout,
+        stderr
+    );
 }
 
 #[cfg(test)]
