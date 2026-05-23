@@ -102,7 +102,7 @@ impl EventStore {
                 });
             }
         }
-        all.sort_by_key(|e| e.event.timestamp.clone());
+        all.sort_by_key(|e| e.event.timestamp);
         all
     }
 

@@ -26,7 +26,7 @@ impl VsockClient {
     }
 
     pub fn send_event(&mut self, event: &SandboxEvent) -> Result<()> {
-        let line = serde_json::to_string(&WireMessage::Event(event.clone()))?;
+        let line = serde_json::to_string(&WireMessage::Event(Box::new(event.clone())))?;
         writeln!(self.writer, "{line}")?;
         Ok(())
     }

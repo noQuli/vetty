@@ -49,7 +49,7 @@ impl DiskBuilder {
         let with_overhead = (total as f64 * self.overhead).ceil() as u64;
         let min = with_overhead.max(self.min_size);
         let mb = 1024 * 1024;
-        Ok(((min + mb - 1) / mb) * mb)
+        Ok(min.div_ceil(mb) * mb)
     }
 
     fn create_sparse_file(&self, path: &Path, size: u64) -> Result<()> {
@@ -135,13 +135,15 @@ fn run_cmd(program: &str, args: &[&str], context: &str) -> Result<()> {
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     bail!(
-        "command `{}` failed while trying to {} (status: {})\nstdout: {}\nstderr: {}",
-        format!("{} {}", program, args.join(" ")),
-        context,
-        output.status,
-        stdout,
-        stderr
-    );
+    // ZMIANA: Dodano `{}` po programie, teraz jest `{} {}`
+    "command `{} {}` failed while trying to {} (status: {})\nstdout: {}\nstderr: {}",
+    program,
+    args.join(" "), // warto dodać spację " ", żeby argumenty się nie zlepiły
+    context,
+    output.status,
+    stdout,
+    stderr
+);
 }
 
 #[cfg(test)]

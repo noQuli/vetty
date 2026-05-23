@@ -65,7 +65,7 @@ async fn handle_connection(stream: UnixStream, store: Arc<EventStore>) -> Result
         };
 
         if let WireMessage::Event(event) = message {
-            store.push_event(&sandbox_id, event);
+            store.push_event(&sandbox_id, *event);
         }
     }
 
