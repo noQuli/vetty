@@ -80,22 +80,58 @@ cd vetty
 # Download VM assets (kernel + rootfs)
 make setup
 
-# Build everything and run (daemon + GUI + VM)
+# Build everything and run (daemon + GUI + VM) with the example code
 make run DIR=./sample-code
 ```
 
-The GUI will open automatically, the daemon starts in the background, and a sandbox VM launches with your code mounted at `/sandbox`.
+The GUI will open automatically, the daemon starts in the background, and a sandbox VM launches with the directory from `DIR` mounted inside the VM at `/sandbox`.
+
+### Where to Put Code
+
+Vetty runs whatever host directory you pass as `DIR`.
+
+For a first run, use the included example:
+
+```bash
+make run DIR=./sample-code
+```
+
+Inside the VM, that directory appears here:
+
+```text
+/sandbox
+```
+
+So this host file:
+
+```text
+sample-code/my-file.py
+```
+
+is available in the VM as:
+
+```text
+/sandbox/my-file.py
+```
+
+To run your own code, create or choose any directory on the host and pass it to `DIR`:
+
+```bash
+mkdir -p ./my-sandbox-code
+cp ./some-script.py ./my-sandbox-code/
+make run DIR=./my-sandbox-code
+```
 
 ### Inside the Sandbox (Guest VM)
 
-Once the VM boots, you are dropped into a root shell inside Alpine Linux. 
+Once the VM boots, you are dropped into a root shell inside Alpine Linux.
 Here are some examples of what you can do:
 
 ```bash
 # Since it's Alpine Linux, you can install packages
 apk add python3 
 
-# Check the mounted code
+# Check the mounted code from DIR
 ls -la /sandbox
 
 # Run commands with tracing enabled
@@ -108,7 +144,7 @@ Any commands prefixed with `vetty-run` will be monitored, and their syscalls, ne
 | Step | What happens |
 |---|---|
 | `make setup` | Downloads the Firecracker kernel and builds the Alpine rootfs with the agent baked in |
-| `make run` | Builds Rust crates, installs GUI deps, then launches daemon → GUI → VM in parallel |
+| `make run DIR=./sample-code` | Builds Rust crates, installs GUI deps, packages `DIR` into the VM code disk, then launches daemon → GUI → VM in parallel |
 
 ---
 
