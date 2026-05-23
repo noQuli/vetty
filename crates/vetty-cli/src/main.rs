@@ -1,5 +1,6 @@
+use std::fs::OpenOptions;
 use std::io::IsTerminal;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use std::process::Command;
 
@@ -104,7 +105,8 @@ fn should_attach_serial(no_serial: bool, stdin_is_terminal: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::should_attach_serial;
+    use super::{ensure_writable_rootfs, should_attach_serial};
+    use std::fs::OpenOptions;
 
     #[test]
     fn serial_is_disabled_when_flag_is_set() {
@@ -117,6 +119,22 @@ mod tests {
         assert!(should_attach_serial(false, true));
         assert!(!should_attach_serial(false, false));
     }
+
+    #[test]
+    fn writable_rootfs_validation_accepts_writable_file() {
+        let path =
+            std::env::temp_dir().join(format!("vetty-cli-test-rootfs-{}", uuid::Uuid::new_v4()));
+        OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+
+        let result = ensure_writable_rootfs(&path);
+        let _ = std::fs::remove_file(&path);
+
+        assert!(result.is_ok());
+    }
 }
 
 fn validate_inputs(args: &Args) -> Result<()> {
@@ -126,6 +144,7 @@ fn validate_inputs(args: &Args) -> Result<()> {
     if !args.rootfs.is_file() {
         bail!("--rootfs file not found: {}", args.rootfs.display());
     }
+    ensure_writable_rootfs(&args.rootfs)?;
     if !args.kernel.is_file() {
         bail!("--kernel file not found: {}", args.kernel.display());
     }
@@ -135,6 +154,19 @@ fn validate_inputs(args: &Args) -> Result<()> {
     if args.memory < 64 {
         bail!("--memory must be at least 64");
     }
+    Ok(())
+}
+
+fn ensure_writable_rootfs(rootfs: &Path) -> Result<()> {
+    OpenOptions::new()
+        .write(true)
+        .open(rootfs)
+        .with_context(|| {
+            format!(
+                "--rootfs must be writable because Firecracker attaches it read/write: {}",
+                rootfs.display()
+            )
+        })?;
     Ok(())
 }
 
