@@ -99,7 +99,7 @@ pub enum WireMessage {
     #[serde(rename = "handshake")]
     Handshake(AgentHandshake),
     #[serde(rename = "event")]
-    Event(SandboxEvent),
+    Event(Box<SandboxEvent>),
 }
 
 pub const VSOCK_PORT: u32 = 5123;
