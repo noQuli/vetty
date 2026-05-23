@@ -142,61 +142,187 @@ fn setup_host_network() -> Result<()> {
     let tap_dev = "tap0";
     let tap_ip = "172.16.0.1";
     let mask_short = "/30";
-    
+
     // Ignore errors for link del, as the interface might not exist
-    let _ = Command::new("sudo").args(["ip", "link", "del", tap_dev]).output();
-    
+    let _ = Command::new("sudo")
+        .args(["ip", "link", "del", tap_dev])
+        .output();
+
     let user = std::env::var("USER").unwrap_or_else(|_| "root".to_string());
-    let output = Command::new("sudo").args(["ip", "tuntap", "add", "dev", tap_dev, "mode", "tap", "user", &user]).output()?;
+    let output = Command::new("sudo")
+        .args([
+            "ip", "tuntap", "add", "dev", tap_dev, "mode", "tap", "user", &user,
+        ])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to create tap device: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to create tap device: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
-    let output = Command::new("sudo").args(["ip", "addr", "add", &format!("{}{}", tap_ip, mask_short), "dev", tap_dev]).output()?;
+
+    let output = Command::new("sudo")
+        .args([
+            "ip",
+            "addr",
+            "add",
+            &format!("{}{}", tap_ip, mask_short),
+            "dev",
+            tap_dev,
+        ])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to assign IP to tap device: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to assign IP to tap device: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    let output = Command::new("sudo").args(["ip", "link", "set", "dev", tap_dev, "up"]).output()?;
+    let output = Command::new("sudo")
+        .args(["ip", "link", "set", "dev", tap_dev, "up"])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to bring up tap device: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to bring up tap device: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
-    let output = Command::new("sudo").args(["sh", "-c", "echo 1 > /proc/sys/net/ipv4/ip_forward"]).output()?;
+
+    let output = Command::new("sudo")
+        .args(["sh", "-c", "echo 1 > /proc/sys/net/ipv4/ip_forward"])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to enable IP forwarding: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to enable IP forwarding: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
-    let output = Command::new("sudo").args(["iptables", "-P", "FORWARD", "ACCEPT"]).output()?;
+
+    let output = Command::new("sudo")
+        .args(["iptables", "-P", "FORWARD", "ACCEPT"])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to accept FORWARD traffic: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to accept FORWARD traffic: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
-    let output = Command::new("ip").args(["-j", "route", "list", "default"]).output()?;
+
+    let output = Command::new("ip")
+        .args(["-j", "route", "list", "default"])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to list default routes: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to list default routes: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    let json: Value = serde_json::from_slice(&output.stdout).context("Failed to parse ip route JSON")?;
-    let host_iface = json.get(0).and_then(|r| r.get("dev")).and_then(|d| d.as_str()).context("Could not find default host interface")?;
-    
+    let json: Value =
+        serde_json::from_slice(&output.stdout).context("Failed to parse ip route JSON")?;
+    let host_iface = json
+        .get(0)
+        .and_then(|r| r.get("dev"))
+        .and_then(|d| d.as_str())
+        .context("Could not find default host interface")?;
+
     // Ignore error for deletion
-    let _ = Command::new("sudo").args(["iptables", "-t", "nat", "-D", "POSTROUTING", "-o", host_iface, "-j", "MASQUERADE"]).output();
-    let output = Command::new("sudo").args(["iptables", "-t", "nat", "-I", "POSTROUTING", "1", "-o", host_iface, "-j", "MASQUERADE"]).output()?;
+    let _ = Command::new("sudo")
+        .args([
+            "iptables",
+            "-t",
+            "nat",
+            "-D",
+            "POSTROUTING",
+            "-o",
+            host_iface,
+            "-j",
+            "MASQUERADE",
+        ])
+        .output();
+    let output = Command::new("sudo")
+        .args([
+            "iptables",
+            "-t",
+            "nat",
+            "-I",
+            "POSTROUTING",
+            "1",
+            "-o",
+            host_iface,
+            "-j",
+            "MASQUERADE",
+        ])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to add iptables masquerade: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to add iptables masquerade: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     // Explicitly allow forwarding for our interfaces
-    let _ = Command::new("sudo").args(["iptables", "-D", "FORWARD", "-i", tap_dev, "-o", host_iface, "-j", "ACCEPT"]).output();
-    let _ = Command::new("sudo").args(["iptables", "-I", "FORWARD", "1", "-i", tap_dev, "-o", host_iface, "-j", "ACCEPT"]).output()?;
-    let _ = Command::new("sudo").args(["iptables", "-D", "FORWARD", "-i", host_iface, "-o", tap_dev, "-j", "ACCEPT"]).output();
-    let _ = Command::new("sudo").args(["iptables", "-I", "FORWARD", "1", "-i", host_iface, "-o", tap_dev, "-j", "ACCEPT"]).output()?;
-    
+    let _ = Command::new("sudo")
+        .args([
+            "iptables", "-D", "FORWARD", "-i", tap_dev, "-o", host_iface, "-j", "ACCEPT",
+        ])
+        .output();
+    let _ = Command::new("sudo")
+        .args([
+            "iptables", "-I", "FORWARD", "1", "-i", tap_dev, "-o", host_iface, "-j", "ACCEPT",
+        ])
+        .output()?;
+    let _ = Command::new("sudo")
+        .args([
+            "iptables", "-D", "FORWARD", "-i", host_iface, "-o", tap_dev, "-j", "ACCEPT",
+        ])
+        .output();
+    let _ = Command::new("sudo")
+        .args([
+            "iptables", "-I", "FORWARD", "1", "-i", host_iface, "-o", tap_dev, "-j", "ACCEPT",
+        ])
+        .output()?;
+
     // Fix MTU black holes - Insert at the TOP of the mangle FORWARD chain instead of appending
-    let _ = Command::new("sudo").args(["iptables", "-t", "mangle", "-D", "FORWARD", "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu"]).output();
-    let output = Command::new("sudo").args(["iptables", "-t", "mangle", "-I", "FORWARD", "1", "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--clamp-mss-to-pmtu"]).output()?;
+    let _ = Command::new("sudo")
+        .args([
+            "iptables",
+            "-t",
+            "mangle",
+            "-D",
+            "FORWARD",
+            "-p",
+            "tcp",
+            "--tcp-flags",
+            "SYN,RST",
+            "SYN",
+            "-j",
+            "TCPMSS",
+            "--clamp-mss-to-pmtu",
+        ])
+        .output();
+    let output = Command::new("sudo")
+        .args([
+            "iptables",
+            "-t",
+            "mangle",
+            "-I",
+            "FORWARD",
+            "1",
+            "-p",
+            "tcp",
+            "--tcp-flags",
+            "SYN,RST",
+            "SYN",
+            "-j",
+            "TCPMSS",
+            "--clamp-mss-to-pmtu",
+        ])
+        .output()?;
     if !output.status.success() {
-        bail!("Failed to add iptables mangle rule for MTU clamping: {}", String::from_utf8_lossy(&output.stderr));
+        bail!(
+            "Failed to add iptables mangle rule for MTU clamping: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
+
     Ok(())
 }

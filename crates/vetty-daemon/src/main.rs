@@ -6,8 +6,8 @@ use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
 mod events;
-mod rest;
 mod proxy;
+mod rest;
 mod vsock;
 mod ws;
 
@@ -29,7 +29,8 @@ async fn main() -> Result<()> {
     proxy::start_proxy_backend(port).await?;
 
     let vsock_store = store.clone();
-    let vsock_path = std::env::var("VETTY_VSOCK_PATH").unwrap_or_else(|_| "/tmp/vetty_v.sock".to_string());
+    let vsock_path =
+        std::env::var("VETTY_VSOCK_PATH").unwrap_or_else(|_| "/tmp/vetty_v.sock".to_string());
     tokio::spawn(async move {
         if let Err(err) = vsock::listen_vsock(&vsock_path, vsock_store).await {
             tracing::error!("vsock listener failed: {err}");

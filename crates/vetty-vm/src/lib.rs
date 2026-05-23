@@ -125,7 +125,6 @@ fn spawn_firecracker(bin: &Path, api_socket: &Path, stderr_log: &Path) -> Result
     let child = Command::new(bin)
         .arg("--api-sock")
         .arg(api_socket)
-        
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::from(stderr))
@@ -141,7 +140,10 @@ async fn wait_for_socket(path: &Path) -> Result<()> {
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
-    bail!("firecracker API socket did not appear at {}", path.display())
+    bail!(
+        "firecracker API socket did not appear at {}",
+        path.display()
+    )
 }
 
 async fn put_api(socket_path: &str, endpoint: &str, body: serde_json::Value) -> Result<()> {
@@ -152,7 +154,12 @@ async fn patch_api(socket_path: &str, endpoint: &str, body: serde_json::Value) -
     api_request(socket_path, "PATCH", endpoint, body).await
 }
 
-async fn api_request(socket_path: &str, method: &str, endpoint: &str, body: serde_json::Value) -> Result<()> {
+async fn api_request(
+    socket_path: &str,
+    method: &str,
+    endpoint: &str,
+    body: serde_json::Value,
+) -> Result<()> {
     let payload = serde_json::to_vec(&body)?;
     let mut last_retryable_error = None;
 
@@ -177,7 +184,12 @@ async fn api_request(socket_path: &str, method: &str, endpoint: &str, body: serd
     bail!("firecracker API request to {endpoint} failed without an error");
 }
 
-async fn api_request_once(socket_path: &str, method: &str, endpoint: &str, payload: &[u8]) -> Result<()> {
+async fn api_request_once(
+    socket_path: &str,
+    method: &str,
+    endpoint: &str,
+    payload: &[u8],
+) -> Result<()> {
     let mut stream = tokio::net::UnixStream::connect(socket_path)
         .await
         .with_context(|| format!("failed to connect to firecracker API socket at {socket_path}"))?;
@@ -286,19 +298,19 @@ async fn configure_vm(api_socket: &str, config: &VmConfig, vsock_uds: &Path) -> 
     )
     .await?;
     put_api(
-    api_socket,
-    "/entropy",
-    json!({
-        "rate_limiter": {
-            "bandwidth": {
-                "size": 1000,
-                "one_time_burst": 0,
-                "refill_time": 100
+        api_socket,
+        "/entropy",
+        json!({
+            "rate_limiter": {
+                "bandwidth": {
+                    "size": 1000,
+                    "one_time_burst": 0,
+                    "refill_time": 100
+                }
             }
-        }
-    }),
-)
-.await?;
+        }),
+    )
+    .await?;
     put_api(
         api_socket,
         "/network-interfaces/net1",
@@ -322,7 +334,10 @@ fn is_retryable_api_error(err: &anyhow::Error) -> bool {
     }
 
     err.chain().any(|cause| {
-        if cause.downcast_ref::<tokio::time::error::Elapsed>().is_some() {
+        if cause
+            .downcast_ref::<tokio::time::error::Elapsed>()
+            .is_some()
+        {
             return true;
         }
 
@@ -407,7 +422,10 @@ fn validate_config(config: &VmConfig) -> Result<()> {
         bail!("rootfs image not found at {}", config.rootfs_path.display());
     }
     if !config.code_disk_path.is_file() {
-        bail!("code disk image not found at {}", config.code_disk_path.display());
+        bail!(
+            "code disk image not found at {}",
+            config.code_disk_path.display()
+        );
     }
     if config.vcpu_count == 0 {
         bail!("vcpu_count must be greater than 0");

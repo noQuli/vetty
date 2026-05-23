@@ -31,9 +31,7 @@ async fn get_events(
     Path(id): Path<String>,
 ) -> Result<Json<Vec<SandboxEvent>>, StatusCode> {
     let parsed = SandboxId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
-    let events = store
-        .get_events(&parsed)
-        .ok_or(StatusCode::NOT_FOUND)?;
+    let events = store.get_events(&parsed).ok_or(StatusCode::NOT_FOUND)?;
     Ok(Json(events))
 }
 
