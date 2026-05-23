@@ -49,6 +49,62 @@ DAEMON_PID=""
 GUI_PID=""
 VM_PID=""
 
+find_listeners_on_port() {
+  local port="$1"
+
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u
+    return
+  fi
+
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -n tcp "$port" 2>/dev/null | tr ' ' '\n' | awk 'NF' | sort -u
+  fi
+}
+
+kill_listeners_on_port() {
+  local port="$1"
+  local label="$2"
+  local pids=()
+
+  mapfile -t pids < <(find_listeners_on_port "$port")
+  if [[ ${#pids[@]} -eq 0 ]]; then
+    return
+  fi
+
+  echo -e "  ${YELLOW}Port $port is in use by old $label process(es); stopping them...${RESET}"
+  for pid in "${pids[@]}"; do
+    local command_line
+    command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    echo -e "    PID $pid ${command_line}"
+    kill "$pid" 2>/dev/null || true
+  done
+
+  for _ in $(seq 1 20); do
+    mapfile -t pids < <(find_listeners_on_port "$port")
+    if [[ ${#pids[@]} -eq 0 ]]; then
+      return
+    fi
+    sleep 0.25
+  done
+
+  echo -e "  ${YELLOW}Port $port is still busy; force-stopping remaining listener(s)...${RESET}"
+  for pid in "${pids[@]}"; do
+    kill -KILL "$pid" 2>/dev/null || true
+  done
+
+  for _ in $(seq 1 20); do
+    mapfile -t pids < <(find_listeners_on_port "$port")
+    if [[ ${#pids[@]} -eq 0 ]]; then
+      return
+    fi
+    sleep 0.25
+  done
+
+  echo -e "${RED}✗ Port $port is still in use; cannot start $label cleanly.${RESET}"
+  exit 1
+}
+
 launch_vetty_cli_in_terminal() {
   local vm_command
   printf -v vm_command 'cd %q && cargo run -p vetty-cli --manifest-path %q -- --dir %q --rootfs %q --kernel %q --memory %q --cpus %q' \
@@ -60,20 +116,41 @@ launch_vetty_cli_in_terminal() {
     "$MEMORY" \
     "$CPUS"
 
-  if command -v x-terminal-emulator >/dev/null 2>&1; then
-    x-terminal-emulator -e bash -lc "$vm_command" &
-    VM_PID=$!
-    return
-  fi
+  case "${VETTY_TERMINAL:-auto}" in
+    current)
+      launch_vetty_cli_in_current_shell
+      return
+      ;;
+    gnome-terminal)
+      gnome-terminal --wait -- bash -lc "$vm_command" &
+      VM_PID=$!
+      return
+      ;;
+    konsole)
+      konsole --nofork -e bash -lc "$vm_command" &
+      VM_PID=$!
+      return
+      ;;
+    xterm)
+      xterm -hold -e bash -lc "$vm_command" &
+      VM_PID=$!
+      return
+      ;;
+    auto)
+      ;;
+    *)
+      echo -e "${YELLOW}⚠ Unknown VETTY_TERMINAL=${VETTY_TERMINAL}; using auto detection.${RESET}"
+      ;;
+  esac
 
   if command -v gnome-terminal >/dev/null 2>&1; then
-    gnome-terminal -- bash -lc "$vm_command" &
+    gnome-terminal --wait -- bash -lc "$vm_command" &
     VM_PID=$!
     return
   fi
 
   if command -v konsole >/dev/null 2>&1; then
-    konsole -e bash -lc "$vm_command" &
+    konsole --nofork -e bash -lc "$vm_command" &
     VM_PID=$!
     return
   fi
@@ -84,13 +161,30 @@ launch_vetty_cli_in_terminal() {
     return
   fi
 
-  echo -e "${YELLOW}⚠ No terminal emulator found; running vetty-cli in the current shell.${RESET}"
+  if command -v x-terminal-emulator >/dev/null 2>&1; then
+    local terminal_path
+    terminal_path="$(readlink -f "$(command -v x-terminal-emulator)" 2>/dev/null || command -v x-terminal-emulator)"
+    if [[ "$terminal_path" == *kitty* ]]; then
+      echo -e "${YELLOW}⚠ Skipping x-terminal-emulator because it resolves to kitty, which is failing GLFW/DBus startup on this host.${RESET}"
+    else
+      x-terminal-emulator -e bash -lc "$vm_command" &
+      VM_PID=$!
+      return
+    fi
+  fi
+
+  launch_vetty_cli_in_current_shell
+}
+
+launch_vetty_cli_in_current_shell() {
+  echo -e "${YELLOW}⚠ No compatible terminal emulator found; running vetty-cli in the current shell without serial attach.${RESET}"
   cargo run -p vetty-cli --manifest-path "$REPO_ROOT/Cargo.toml" -- \
     --dir "$DIR" \
     --rootfs "$ROOTFS" \
     --kernel "$KERNEL" \
     --memory "$MEMORY" \
-    --cpus "$CPUS" &
+    --cpus "$CPUS" \
+    --no-serial &
   VM_PID=$!
 }
 
@@ -147,32 +241,31 @@ fi
 
 echo -e "${CYAN}[1/3]${RESET} Starting vetty-daemon on port $DAEMON_PORT..."
 
-# Check if daemon is already running
-if curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
-  echo -e "  ${YELLOW}Daemon already running on port $DAEMON_PORT${RESET}"
-else
-  VETTY_DAEMON_PORT="$DAEMON_PORT" cargo run -p vetty-daemon --manifest-path "$REPO_ROOT/Cargo.toml" &
-  DAEMON_PID=$!
+kill_listeners_on_port "$DAEMON_PORT" "daemon"
 
-  # Wait for daemon to be ready (up to 300 seconds array to allow time for compilation)
-  for i in $(seq 1 600); do
-    if curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
-      break
-    fi
-    sleep 0.5
-  done
+VETTY_DAEMON_PORT="$DAEMON_PORT" cargo run -p vetty-daemon --manifest-path "$REPO_ROOT/Cargo.toml" &
+DAEMON_PID=$!
 
-  if ! curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
-    echo -e "${RED}✗ Daemon failed to start within 300 seconds${RESET}"
-    exit 1
+# Wait for daemon to be ready (up to 300 seconds array to allow time for compilation)
+for i in $(seq 1 600); do
+  if curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
+    break
   fi
+  sleep 0.5
+done
 
-  echo -e "  ${GREEN}✓ Daemon ready (PID $DAEMON_PID)${RESET}"
+if ! curl -sf "http://127.0.0.1:$DAEMON_PORT/api/sandboxes" >/dev/null 2>&1; then
+  echo -e "${RED}✗ Daemon failed to start within 300 seconds${RESET}"
+  exit 1
 fi
+
+echo -e "  ${GREEN}✓ Daemon ready (PID $DAEMON_PID)${RESET}"
 
 # ---- Start GUI ---------------------------------------------------------------
 
 echo -e "${CYAN}[2/3]${RESET} Starting Electron GUI..."
+
+kill_listeners_on_port 5173 "GUI dev server"
 
 cd "$REPO_ROOT/gui"
 npm run electron:dev &

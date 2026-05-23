@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://127.0.0.1:5173 && NODE_ENV=development electron .\"",
+    "electron:dev": "concurrently -k \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && NODE_ENV=development electron .\"",
     "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
