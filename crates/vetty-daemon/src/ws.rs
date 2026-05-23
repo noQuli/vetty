@@ -6,10 +6,7 @@ use axum::response::Response;
 
 use crate::events::EventStore;
 
-pub async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(store): State<Arc<EventStore>>,
-) -> Response {
+pub async fn ws_handler(ws: WebSocketUpgrade, State(store): State<Arc<EventStore>>) -> Response {
     ws.on_upgrade(move |socket| handle_ws(socket, store))
 }
 

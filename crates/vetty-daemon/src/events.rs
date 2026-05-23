@@ -78,7 +78,11 @@ impl EventStore {
     }
 
     pub fn list_sandboxes(&self) -> Vec<SandboxInfo> {
-        let mut sandboxes: Vec<_> = self.sessions.iter().map(|entry| entry.info.clone()).collect();
+        let mut sandboxes: Vec<_> = self
+            .sessions
+            .iter()
+            .map(|entry| entry.info.clone())
+            .collect();
         sandboxes.sort_by_key(|s| s.started_at);
         sandboxes
     }

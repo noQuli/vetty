@@ -88,7 +88,10 @@ fn parse_http_headers(headers_text: &str) -> Option<Value> {
         .take_while(|line| !line.is_empty())
         .filter_map(|line| {
             let (header_name, value) = line.split_once(':')?;
-            Some((header_name.trim().to_string(), Value::String(value.trim().to_string())))
+            Some((
+                header_name.trim().to_string(),
+                Value::String(value.trim().to_string()),
+            ))
         })
         .collect::<Map<String, Value>>();
 

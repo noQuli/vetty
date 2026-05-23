@@ -30,9 +30,7 @@ impl DiskBuilder {
         let size = self.calculate_size(source_dir)?;
         self.create_sparse_file(output_path, size)?;
         if let Err(error) = self.format_ext4_with_source(source_dir, output_path) {
-            warn!(
-                "mkfs.ext4 direct population failed (falling back to mount+copy): {error}"
-            );
+            warn!("mkfs.ext4 direct population failed (falling back to mount+copy): {error}");
             self.format_ext4(output_path)?;
             self.copy_contents(source_dir, output_path)?;
         }

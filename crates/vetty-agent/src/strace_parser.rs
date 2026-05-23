@@ -233,7 +233,10 @@ mod tests {
         assert_eq!(event.http_url.as_deref(), Some("http://example.com/hello"));
         assert_eq!(event.hostname.as_deref(), Some("example.com"));
         assert_eq!(
-            event.http_headers.as_ref().and_then(|value| value.get("Host")),
+            event
+                .http_headers
+                .as_ref()
+                .and_then(|value| value.get("Host")),
             Some(&serde_json::Value::String("example.com".to_string()))
         );
         assert_eq!(event.http_body.as_deref(), Some(""));
@@ -266,7 +269,10 @@ mod tests {
         );
         assert_eq!(event.hostname.as_deref(), Some("example.org"));
         assert_eq!(
-            event.http_headers.as_ref().and_then(|value| value.get("Host")),
+            event
+                .http_headers
+                .as_ref()
+                .and_then(|value| value.get("Host")),
             Some(&serde_json::Value::String("ignored.test".to_string()))
         );
     }
@@ -293,7 +299,10 @@ mod tests {
         assert_eq!(event.event_type, EventType::HttpResponse);
         assert_eq!(event.http_status, Some(204));
         assert_eq!(
-            event.http_headers.as_ref().and_then(|value| value.get("Server")),
+            event
+                .http_headers
+                .as_ref()
+                .and_then(|value| value.get("Server")),
             Some(&serde_json::Value::String("test".to_string()))
         );
         assert_eq!(event.http_body.as_deref(), Some(""));
