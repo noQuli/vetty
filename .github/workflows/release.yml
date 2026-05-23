@@ -57,7 +57,7 @@ jobs:
           tar czf dist/${{ matrix.artifact }}.tar.gz -C dist ${{ matrix.artifact }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}.tar.gz
@@ -92,7 +92,7 @@ jobs:
           tar czf ../vetty-gui.tar.gz dist/ electron/ package.json
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vetty-gui
           path: vetty-gui.tar.gz
