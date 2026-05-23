@@ -17,6 +17,8 @@ RESET  := \033[0m
 ROOTFS       := image/rootfs.ext4
 KERNEL       := image/vmlinux
 AGENT_BIN    := target/x86_64-unknown-linux-musl/release/vetty-agent
+MITM_CA      := .vetty-mitmproxy/mitmproxy-ca-cert.pem
+GUEST_FILES  := guest/init.sh guest/vetty-run.sh $(shell find guest/overrides -type f 2>/dev/null)
 GUI_DIR      := gui
 DIR          ?= ./sample-code
 MEMORY       ?= 128
@@ -69,7 +71,17 @@ $(KERNEL):
 
 $(AGENT_BIN): build-agent
 
-$(ROOTFS): $(AGENT_BIN)
+$(MITM_CA):
+	@echo -e "$(CYAN)→ Generating mitmproxy CA...$(RESET)"
+	@mkdir -p .vetty-mitmproxy
+	@if ! command -v mitmdump >/dev/null 2>&1; then \
+		echo -e "$(YELLOW)⚠ mitmdump not found; HTTPS interception CA cannot be generated.$(RESET)"; \
+		exit 1; \
+	fi
+	@timeout 3 mitmdump --set confdir=.vetty-mitmproxy --listen-host 127.0.0.1 --listen-port 0 >/dev/null 2>&1 || true
+	@test -f "$(MITM_CA)" || (echo -e "$(YELLOW)⚠ mitmproxy did not create $(MITM_CA).$(RESET)"; exit 1)
+
+$(ROOTFS): $(AGENT_BIN) $(MITM_CA) image/build-rootfs.sh $(GUEST_FILES)
 	@echo -e "$(CYAN)→ Building rootfs (requires sudo)...$(RESET)"
 	cd image && sudo bash build-rootfs.sh
 

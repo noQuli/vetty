@@ -20,6 +20,8 @@ KERNEL="${KERNEL:-$REPO_ROOT/image/vmlinux}"
 MEMORY="${MEMORY:-128}"
 CPUS="${CPUS:-1}"
 DAEMON_PORT="${VETTY_DAEMON_PORT:-9876}"
+PROXY_BACKEND="${VETTY_PROXY_BACKEND:-mitmproxy}"
+MITM_PORT="${VETTY_MITM_PORT:-8899}"
 
 # Parse CLI arguments
 while [[ $# -gt 0 ]]; do
@@ -242,6 +244,11 @@ fi
 echo -e "${CYAN}[1/3]${RESET} Starting vetty-daemon on port $DAEMON_PORT..."
 
 kill_listeners_on_port "$DAEMON_PORT" "daemon"
+case "${PROXY_BACKEND,,}" in
+  mitmproxy|both|"")
+    kill_listeners_on_port "$MITM_PORT" "mitmproxy"
+    ;;
+esac
 
 VETTY_DAEMON_PORT="$DAEMON_PORT" cargo run -p vetty-daemon --manifest-path "$REPO_ROOT/Cargo.toml" &
 DAEMON_PID=$!

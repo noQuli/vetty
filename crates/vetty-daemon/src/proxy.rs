@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use tokio::net::TcpStream;
 use tokio::process::Command;
 
 // ---------------------------------------------------------------------------
@@ -57,7 +59,7 @@ pub async fn start_proxy_backend(daemon_port: u16) -> Result<()> {
     let backend = ProxyBackend::from_env();
 
     if backend.wants_mitmproxy() {
-        match start_mitmproxy(daemon_port) {
+        match start_mitmproxy(daemon_port).await {
             Ok(()) => tracing::info!("mitmproxy backend started"),
             Err(err) => tracing::warn!("mitmproxy failed to start: {err}"),
         }
@@ -81,7 +83,7 @@ pub async fn start_proxy_backend(daemon_port: u16) -> Result<()> {
 // mitmproxy
 // ---------------------------------------------------------------------------
 
-fn start_mitmproxy(daemon_port: u16) -> Result<()> {
+async fn start_mitmproxy(daemon_port: u16) -> Result<()> {
     let repo_root = default_repo_root();
     let proxy_port = std::env::var("VETTY_MITM_PORT")
         .unwrap_or_else(|_| "8899".to_string())
@@ -121,6 +123,8 @@ fn start_mitmproxy(daemon_port: u16) -> Result<()> {
         .spawn()
         .context("failed to start mitmdump")?;
 
+    wait_for_mitmproxy(&mut child, proxy_port).await?;
+
     tracing::info!(
         "mitmproxy listening on 0.0.0.0:{proxy_port}; CA: {}/mitmproxy-ca-cert.pem",
         confdir.display()
@@ -134,6 +138,22 @@ fn start_mitmproxy(daemon_port: u16) -> Result<()> {
     });
 
     Ok(())
+}
+
+async fn wait_for_mitmproxy(child: &mut tokio::process::Child, proxy_port: u16) -> Result<()> {
+    for _ in 0..40 {
+        if let Some(status) = child.try_wait()? {
+            bail!("mitmdump exited before listening on port {proxy_port}: {status}");
+        }
+
+        if TcpStream::connect(("127.0.0.1", proxy_port)).await.is_ok() {
+            return Ok(());
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    bail!("mitmdump did not start listening on port {proxy_port}");
 }
 
 // ---------------------------------------------------------------------------

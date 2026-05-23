@@ -10,6 +10,7 @@ ARCH="${ARCH:-x86_64}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MITM_CA_CERT="${MITM_CA_CERT:-$REPO_ROOT/.vetty-mitmproxy/mitmproxy-ca-cert.pem}"
+MITM_CONFDIR="$(dirname "$MITM_CA_CERT")"
 
 AGENT_BIN="${AGENT_BIN:-$REPO_ROOT/target/x86_64-unknown-linux-musl/release/vetty-agent}"
 GUEST_DIR="${GUEST_DIR:-$REPO_ROOT/guest}"
@@ -25,6 +26,14 @@ fi
 if [[ ! -f "$GUEST_DIR/init.sh" || ! -f "$GUEST_DIR/vetty-run.sh" ]]; then
   echo "ERROR: missing guest scripts in $GUEST_DIR"
   exit 1
+fi
+
+if [[ ! -f "$MITM_CA_CERT" ]]; then
+  if command -v mitmdump >/dev/null 2>&1; then
+    mkdir -p "$MITM_CONFDIR"
+    # mitmproxy creates its CA files before binding the listen socket.
+    timeout 3 mitmdump --set "confdir=$MITM_CONFDIR" --listen-host 127.0.0.1 --listen-port 0 >/dev/null 2>&1 || true
+  fi
 fi
 
 echo "=== Building rootfs at $OUT_PATH ==="
@@ -67,6 +76,10 @@ sudo cp "$GUEST_DIR/vetty-run.sh" "$MOUNT_DIR/usr/local/bin/vetty-run"
 sudo chmod +x "$MOUNT_DIR/usr/local/bin/vetty-run"
 sudo cp "$GUEST_DIR/init.sh" "$MOUNT_DIR/opt/vetty/init.sh"
 sudo chmod +x "$MOUNT_DIR/opt/vetty/init.sh"
+if [[ -d "$GUEST_DIR/overrides" ]]; then
+  sudo mkdir -p "$MOUNT_DIR/opt/vetty/overrides"
+  sudo cp -a "$GUEST_DIR/overrides/." "$MOUNT_DIR/opt/vetty/overrides/"
+fi
 
 sudo bash -c "cat > '$MOUNT_DIR/etc/inittab' << 'EOF'
 ::sysinit:/bin/mount -t proc proc /proc
@@ -74,5 +87,12 @@ sudo bash -c "cat > '$MOUNT_DIR/etc/inittab' << 'EOF'
 ::sysinit:/bin/mount -t devtmpfs dev /dev
 ttyS0::respawn:/opt/vetty/init.sh
 EOF"
+
+sudo umount "$MOUNT_DIR"
+
+if [[ -n "${SUDO_UID:-}" && -n "${SUDO_GID:-}" ]]; then
+  sudo chown "$SUDO_UID:$SUDO_GID" "$OUT_PATH"
+fi
+chmod u+rw "$OUT_PATH"
 
 echo "=== rootfs image ready: $OUT_PATH ==="

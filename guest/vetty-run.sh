@@ -20,10 +20,13 @@ export HTTPS_PROXY="$HTTP_PROXY"
 export http_proxy="$HTTP_PROXY"
 export https_proxy="$HTTPS_PROXY"
 export ALL_PROXY="$HTTP_PROXY"
-export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/vetty-proxy-ca.pem}"
 export SSL_CERT_DIR="${SSL_CERT_DIR:-/etc/ssl/certs}"
 export CURL_CA_BUNDLE="$SSL_CERT_FILE"
 export REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
+export PYTHONPATH="/opt/vetty/overrides/pythonpath${PYTHONPATH:+:$PYTHONPATH}"
+export RUBYLIB="/opt/vetty/overrides/gems${RUBYLIB:+:$RUBYLIB}"
+export PHP_INI_SCAN_DIR="/opt/vetty/overrides/php${PHP_INI_SCAN_DIR:+:$PHP_INI_SCAN_DIR}"
 
 strace -f -tt -T \
   -s 8192 \
