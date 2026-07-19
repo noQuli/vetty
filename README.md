@@ -12,12 +12,10 @@
 Vetty is a security sandbox that runs untrusted code inside **Firecracker micro-VMs** while monitoring all syscalls, file access, network activity, and HTTP traffic in real time. A host-side daemon collects events from the guest agent and streams them to an **Electron + React GUI**.
 
 [Quick Start](#-quick-start) •
-[Documentation](#-documentation) •
+[Documentation](#-documdocs/vetty.pngentation) •
 [Contributing](#contributing)
-
+![vetty_screenshot](docs/vetty.png)
 </div>
-
----
 
 ## ✨ Features
 
